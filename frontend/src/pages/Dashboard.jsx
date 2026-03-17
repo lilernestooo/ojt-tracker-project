@@ -1,19 +1,19 @@
-// src/pages/Dashboard.jsx
 import { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { fetchAttendance, markAbsent, timeIn, timeOut } from "../api/attendance";
+import { fetchAttendance, markAbsent } from "../api/attendance";
+import { fetchOjtHours } from "../api/ojtHours";
 import TimeControls from "../components/TimesControls";
 import Calendar from "../components/Calendar";
+import OjtHoursSummary from "../components/OjtHoursSummary";
+import LiveClock from "../components/LiveClock";
 import dayjs from "dayjs";
 
 export default function Dashboard() {
-  const { user, token, logout } = useContext(AuthContext);
-
-  // Attendance state
+  const { user, token } = useContext(AuthContext);
   const [attendance, setAttendance] = useState([]);
   const [month, setMonth] = useState(dayjs().format("YYYY-MM"));
+  const [ojtHours, setOjtHours] = useState(null);
 
-  // Load attendance for current month
   const loadAttendance = async () => {
     try {
       const data = await fetchAttendance(month, token);
@@ -23,11 +23,22 @@ export default function Dashboard() {
     }
   };
 
+  const loadOjtHours = async () => {
+    try {
+      const data = await fetchOjtHours(token);
+      setOjtHours(data);
+    } catch (err) {
+      console.error("Failed to load OJT hours");
+    }
+  };
+
   useEffect(() => {
-    if (token) loadAttendance();
+    if (token) {
+      loadAttendance();
+      loadOjtHours();
+    }
   }, [token, month]);
 
-  // Handle marking a day as absent
   const handleMarkAbsent = async (date) => {
     try {
       await markAbsent(date, token);
@@ -37,48 +48,146 @@ export default function Dashboard() {
     }
   };
 
-  // Handle Time In / Time Out directly (optional if using TimeControls component)
-  const handleTimeIn = async () => {
-    try {
-      await timeIn(token);
-      loadAttendance();
-    } catch (err) {
-      alert(err.response?.data?.message || "Time In failed");
-    }
-  };
+  // Compute total hours from attendance (capped at 8hrs per day)
+const computedHours = attendance.reduce((total, record) => {
+  return total + parseFloat(record.hours_worked || 0);
+}, 0);
 
-  const handleTimeOut = async () => {
-    try {
-      await timeOut(token);
-      loadAttendance();
-    } catch (err) {
-      alert(err.response?.data?.message || "Time Out failed");
+  // Weekly summary — count present days Mon-Fri this month
+  const weeklyStats = (() => {
+    const weeks = {};
+    attendance.forEach((record) => {
+      const date = dayjs(record.date);
+      const dayOfWeek = date.day(); // 0=Sun, 6=Sat
+      if (dayOfWeek === 0 || dayOfWeek === 6) return; // skip weekends
+      const weekNum = Math.ceil(date.date() / 7);
+      if (!weeks[weekNum]) weeks[weekNum] = { present: 0, hours: 0 };
+      if (record.status === "present") {
+        weeks[weekNum].present += 1;
+        if (record.time_in && record.time_out) {
+          const diff = dayjs(record.time_out).diff(dayjs(record.time_in), "minute");
+          weeks[weekNum].hours += Math.min(diff / 60, 8);
+        }
+      }
+    });
+    return weeks;
+  })();
+
+  // Monthly stats
+  const totalPresentDays = attendance.filter((r) => r.status === "present").length;
+  const totalAbsentDays = attendance.filter((r) => r.status === "absent").length;
+  const totalWeekdaysThisMonth = (() => {
+    const start = dayjs(month + "-01");
+    let count = 0;
+    for (let i = 1; i <= start.daysInMonth(); i++) {
+      const day = start.date(i).day();
+      if (day !== 0 && day !== 6) count++;
     }
-  };
+    return count;
+  })();
+
+  const prevMonth = () => setMonth(dayjs(month).subtract(1, "month").format("YYYY-MM"));
+  const nextMonth = () => setMonth(dayjs(month).add(1, "month").format("YYYY-MM"));
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      {/* Welcome & Logout */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
+    <div className="min-h-screen bg-gray-50 p-6 max-w-4xl mx-auto">
+
+      {/* Header */}
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold text-gray-800 mb-1">
           Welcome, {user?.name}
         </h1>
-        <p className="text-gray-600 mb-4">
-          This is your dashboard. Track your attendance and manage your OJT logs.
+        <p className="text-gray-500 text-sm">
+          Track your attendance and manage your OJT logs.
         </p>
+      </div>
+
+      {/* Live Clock */}
+      <LiveClock />
+
+      {/* OJT Hours Progress */}
+      {ojtHours && (
+        <OjtHoursSummary
+          ojtHours={ojtHours}
+          computedHours={computedHours}
+          token={token}
+          onUpdate={loadOjtHours}
+        />
+      )}
+
+      {/* Monthly Stats */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="bg-white rounded-lg shadow p-4 text-center">
+          <p className="text-2xl font-bold text-green-500">{totalPresentDays}</p>
+          <p className="text-xs text-gray-500 mt-1">Present Days</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4 text-center">
+          <p className="text-2xl font-bold text-red-500">{totalAbsentDays}</p>
+          <p className="text-xs text-gray-500 mt-1">Absent Days</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4 text-center">
+          <p className="text-2xl font-bold text-blue-500">{totalWeekdaysThisMonth}</p>
+          <p className="text-xs text-gray-500 mt-1">Weekdays This Month</p>
+        </div>
+      </div>
+
+      {/* Weekly Summary */}
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">
+          Weekly Summary (Mon–Fri, max 8hrs/day)
+        </h3>
+        <div className="flex flex-col gap-2">
+          {Object.entries(weeklyStats).map(([week, stats]) => (
+            <div key={week} className="flex items-center gap-3">
+              <span className="text-xs text-gray-400 w-16">Week {week}</span>
+              <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
+                <div
+                  className="bg-blue-400 h-3 rounded-full transition-all"
+                  style={{ width: `${Math.min((stats.hours / 40) * 100, 100)}%` }}
+                />
+              </div>
+              <span className="text-xs text-gray-600 w-28 text-right">
+                {stats.present}/5 days · {stats.hours.toFixed(1)}h/40h
+              </span>
+            </div>
+          ))}
+          {Object.keys(weeklyStats).length === 0 && (
+            <p className="text-xs text-gray-400 text-center py-2">
+              No attendance records this month yet.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Time Controls */}
+     <TimeControls token={token} onUpdate={loadAttendance} attendance={attendance} />
+
+      {/* Month Navigation */}
+      <div className="flex items-center justify-between mb-4">
         <button
-          onClick={logout}
-          className="bg-red-500 text-white px-4 py-2 rounded-none hover:bg-red-600 transition"
+          onClick={prevMonth}
+          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
         >
-          Logout
+          ← Prev
+        </button>
+        <h2 className="text-lg font-semibold text-gray-700">
+          {dayjs(month).format("MMMM YYYY")}
+        </h2>
+        <button
+          onClick={nextMonth}
+          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+        >
+          Next →
         </button>
       </div>
 
-      {/* Time In / Time Out controls */}
-      <TimeControls token={token} onUpdate={loadAttendance} />
+      {/* Calendar */}
+      <Calendar
+        month={month}
+        attendance={attendance}
+        onMarkAbsent={handleMarkAbsent}
+      />
 
-      {/* Attendance Calendar */}
-      <Calendar month={month} attendance={attendance} onMarkAbsent={handleMarkAbsent} />
     </div>
   );
 }

@@ -1,4 +1,3 @@
-// src/api/attendance.js
 import api from "./axios";
 
 export const fetchAttendance = async (month, token) => {

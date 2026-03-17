@@ -2,22 +2,24 @@ const pool = require("../config/db");
 
 const getAttendanceByMonth = async (userId, month) => {
   const res = await pool.query(
-    "SELECT date, status, time_in, time_out FROM attendance WHERE user_id = $1 AND to_char(date, 'YYYY-MM') = $2 ORDER BY date ASC",
+    `SELECT date, status, time_in, time_out, hours_worked 
+     FROM attendance 
+     WHERE user_id = $1 AND to_char(date, 'YYYY-MM') = $2 
+     ORDER BY date ASC`,
     [userId, month]
   );
   return res.rows;
 };
 
 const timeIn = async (userId) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 
-  // Insert if not exists, else update time_in
   const res = await pool.query(
     `INSERT INTO attendance (user_id, date, time_in, status)
      VALUES ($1, $2, CURRENT_TIMESTAMP, 'present')
      ON CONFLICT (user_id, date) DO UPDATE
      SET time_in = CURRENT_TIMESTAMP, status = 'present'
-     RETURNING date, status, time_in, time_out`,
+     RETURNING date, status, time_in, time_out, hours_worked`,
     [userId, today]
   );
 
@@ -25,26 +27,43 @@ const timeIn = async (userId) => {
 };
 
 const timeOut = async (userId) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 
+  // First update time_out
   const res = await pool.query(
     `UPDATE attendance
      SET time_out = CURRENT_TIMESTAMP
      WHERE user_id = $1 AND date = $2
-     RETURNING date, status, time_in, time_out`,
+     RETURNING date, status, time_in, time_out, hours_worked`,
     [userId, today]
   );
 
-  return res.rows[0];
+  const record = res.rows[0];
+  if (!record) return null;
+
+  // Compute hours worked capped at 8hrs
+  const diffMinutes = (new Date(record.time_out) - new Date(record.time_in)) / 1000 / 60;
+  const hoursWorked = Math.min(diffMinutes / 60, 8).toFixed(2);
+
+  // Store computed hours_worked
+  const updated = await pool.query(
+    `UPDATE attendance
+     SET hours_worked = $1
+     WHERE user_id = $2 AND date = $3
+     RETURNING date, status, time_in, time_out, hours_worked`,
+    [hoursWorked, userId, today]
+  );
+
+  return updated.rows[0];
 };
 
 const markAbsent = async (userId, date) => {
   const res = await pool.query(
-    `INSERT INTO attendance (user_id, date, status)
-     VALUES ($1, $2, 'absent')
+    `INSERT INTO attendance (user_id, date, status, hours_worked)
+     VALUES ($1, $2, 'absent', 0)
      ON CONFLICT (user_id, date) DO UPDATE
-     SET status = 'absent'
-     RETURNING date, status, time_in, time_out`,
+     SET status = 'absent', hours_worked = 0
+     RETURNING date, status, time_in, time_out, hours_worked`,
     [userId, date]
   );
 

@@ -3,7 +3,6 @@ const attendanceModel = require("../models/attendanceModel");
 const getAttendance = async (req, res) => {
   const userId = req.user.id;
   const { month } = req.query;
-
   try {
     const data = await attendanceModel.getAttendanceByMonth(userId, month);
     res.json(data);
@@ -28,6 +27,7 @@ const handleTimeOut = async (req, res) => {
   const userId = req.user.id;
   try {
     const data = await attendanceModel.timeOut(userId);
+    if (!data) return res.status(400).json({ message: "No active Time In found for today" });
     res.json(data);
   } catch (err) {
     console.error(err);
@@ -38,7 +38,6 @@ const handleTimeOut = async (req, res) => {
 const handleMarkAbsent = async (req, res) => {
   const userId = req.user.id;
   const { date } = req.body;
-
   try {
     const data = await attendanceModel.markAbsent(userId, date);
     res.json(data);

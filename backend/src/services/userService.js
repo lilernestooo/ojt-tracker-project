@@ -4,7 +4,7 @@ const { createUser, getUserByEmail, getUserById } = require('../models/userModel
 
 const registerUser = async (data) => {
   if (!data) throw new Error('Request body is missing');
-  const { name, email, password } = data;
+  const { name, email, password, required_hours, previous_hours } = data; // ← add these
   if (!name || !email || !password) throw new Error('Name, email, and password are required');
 
   const existingUser = await getUserByEmail(email);
@@ -13,7 +13,14 @@ const registerUser = async (data) => {
   const hashedPassword = await bcrypt.hash(password, 10);
   const role = 'user';
 
-  const user = await createUser({ name, email, password: hashedPassword, role });
+  const user = await createUser({
+    name,
+    email,
+    password: hashedPassword,
+    role,
+    required_hours: required_hours || 600,   // ← pass through
+    previous_hours: previous_hours || 0,     // ← pass through
+  });
   return user;
 };
 
