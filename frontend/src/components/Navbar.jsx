@@ -2,6 +2,7 @@ import { useState, useContext } from "react";
 import { NavLink } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { LayoutDashboard, NotebookPen, User, LogOut, Menu, X, ShieldCheck } from "lucide-react";
+import logo from "../assets/logo (2).png";
 
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
@@ -57,9 +58,12 @@ export default function Navbar() {
 
         {/* Left — App name + Nav Links (desktop) */}
         <div className="flex items-center gap-6">
-          <span className="text-lg font-bold tracking-wide text-white">
-            📍 TrackMe!
-          </span>
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="TrackMe Logo" className="h-8 w-8 object-contain" />
+            <span className="text-lg font-bold tracking-wide text-white">
+              TrackMe!
+            </span>
+          </div>
           <div className="hidden md:flex gap-2">
             {navLinks}
           </div>
