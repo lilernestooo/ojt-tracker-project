@@ -1,4 +1,5 @@
 const userService = require('../services/userService');
+const userModel = require('../models/userModel');
 
 const register = async (req, res, next) => {
   try {
@@ -30,4 +31,48 @@ const getProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getProfile };
+// Admin — get all interns
+const getAllInterns = async (req, res, next) => {
+  try {
+    const interns = await userModel.getAllInterns();
+    res.json({ success: true, data: interns });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Admin — get intern attendance by month
+const getInternAttendance = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { month } = req.query;
+    const data = await userModel.getInternAttendance(id, month);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Admin — get intern logs
+const getInternLogs = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const data = await userModel.getInternLogs(id);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Admin — delete intern
+const deleteUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await userModel.deleteUser(id);
+    res.json({ success: true, message: 'Intern deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { register, login, getProfile, getAllInterns, getInternAttendance, getInternLogs, deleteUser, updateInternOjtHours, };

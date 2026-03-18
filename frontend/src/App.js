@@ -1,4 +1,3 @@
-// src/App.js
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import AuthProvider from "./context/AuthContext";
 
@@ -9,6 +8,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Logs from "./pages/Logs";
+import Admin from "./pages/Admin";
 
 function AppRoutes() {
   return (
@@ -17,7 +17,7 @@ function AppRoutes() {
       <Route path="/" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Protected Routes */}
+      {/* Intern Protected Routes */}
       <Route
         path="/dashboard"
         element={
@@ -33,6 +33,17 @@ function AppRoutes() {
           <ProtectedRoute>
             <Navbar />
             <Logs />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin Protected Route */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute adminOnly={true}>
+            <Navbar />
+            <Admin />
           </ProtectedRoute>
         }
       />

@@ -1,33 +1,51 @@
 import { useState, useContext } from "react";
 import { NavLink } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import { LayoutDashboard, NotebookPen, User, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, NotebookPen, User, LogOut, Menu, X, ShieldCheck } from "lucide-react";
 
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
   const [menuOpen, setMenuOpen] = useState(false);
+  const isAdmin = user?.role === "admin";
 
   const activeClass = "flex items-center gap-2 bg-blue-900 bg-opacity-50 px-3 py-2 rounded-lg text-white font-semibold text-sm";
   const inactiveClass = "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-900 hover:bg-opacity-30 transition text-white text-sm";
 
   const navLinks = (
     <>
-      <NavLink
-        to="/dashboard"
-        className={({ isActive }) => isActive ? activeClass : inactiveClass}
-        onClick={() => setMenuOpen(false)}
-      >
-        <LayoutDashboard size={16} />
-        Dashboard
-      </NavLink>
-      <NavLink
-        to="/logs"
-        className={({ isActive }) => isActive ? activeClass : inactiveClass}
-        onClick={() => setMenuOpen(false)}
-      >
-        <NotebookPen size={16} />
-        Logs
-      </NavLink>
+      {/* Admin link — only for admin */}
+      {isAdmin && (
+        <NavLink
+          to="/admin"
+          className={({ isActive }) => isActive ? activeClass : inactiveClass}
+          onClick={() => setMenuOpen(false)}
+        >
+          <ShieldCheck size={16} />
+          Admin
+        </NavLink>
+      )}
+
+      {/* Intern links — only for interns */}
+      {!isAdmin && (
+        <>
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) => isActive ? activeClass : inactiveClass}
+            onClick={() => setMenuOpen(false)}
+          >
+            <LayoutDashboard size={16} />
+            Dashboard
+          </NavLink>
+          <NavLink
+            to="/logs"
+            className={({ isActive }) => isActive ? activeClass : inactiveClass}
+            onClick={() => setMenuOpen(false)}
+          >
+            <NotebookPen size={16} />
+            Logs
+          </NavLink>
+        </>
+      )}
     </>
   );
 
@@ -39,12 +57,9 @@ export default function Navbar() {
 
         {/* Left — App name + Nav Links (desktop) */}
         <div className="flex items-center gap-6">
-          {/* App name */}
           <span className="text-lg font-bold tracking-wide text-white">
             📍 TrackMe!
           </span>
-
-          {/* Desktop nav links */}
           <div className="hidden md:flex gap-2">
             {navLinks}
           </div>
@@ -58,6 +73,11 @@ export default function Navbar() {
             <span className="hidden md:flex items-center gap-1 text-blue-100">
               <User size={16} />
               {user.name}
+              {isAdmin && (
+                <span className="ml-1 text-xs bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full font-semibold">
+                  Admin
+                </span>
+              )}
             </span>
           )}
 
@@ -91,6 +111,11 @@ export default function Navbar() {
             <span className="flex items-center gap-2 text-blue-100 text-sm px-3 py-2">
               <User size={16} />
               {user.name}
+              {isAdmin && (
+                <span className="text-xs bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full font-semibold">
+                  Admin
+                </span>
+              )}
             </span>
           )}
 
