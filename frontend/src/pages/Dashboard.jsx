@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { fetchAttendance, markAbsent } from "../api/attendance";
-import { fetchOjtHours } from "../api/ojtHours";
+import { fetchOjtHours, fetchAllTimeComputedHours } from "../api/ojtHours";
 import TimeControls from "../components/TimesControls";
 import Calendar from "../components/Calendar";
 import OjtHoursSummary from "../components/OjtHoursSummary";
@@ -12,7 +12,8 @@ export default function Dashboard() {
   const { user, token } = useContext(AuthContext);
   const [attendance, setAttendance] = useState([]);
   const [month, setMonth] = useState(dayjs().format("YYYY-MM"));
-  const [ojtHours, setOjtHours] = useState(null);
+  const [ojtHours, setOjtHours] = useState({ required_hours: 600, previous_hours: 0 });
+  const [allTimeHours, setAllTimeHours] = useState(0); // ← all-time computed hours
 
   const loadAttendance = async () => {
     try {
@@ -26,9 +27,18 @@ export default function Dashboard() {
   const loadOjtHours = async () => {
     try {
       const data = await fetchOjtHours(token);
-      setOjtHours(data);
+      if (data) setOjtHours(data);
     } catch (err) {
       console.error("Failed to load OJT hours");
+    }
+  };
+
+  const loadAllTimeHours = async () => {
+    try {
+      const hours = await fetchAllTimeComputedHours(token);
+      setAllTimeHours(hours || 0);
+    } catch (err) {
+      console.error("Failed to load all-time hours");
     }
   };
 
@@ -36,6 +46,7 @@ export default function Dashboard() {
     if (token) {
       loadAttendance();
       loadOjtHours();
+      loadAllTimeHours();
     }
   }, [token, month]);
 
@@ -43,31 +54,24 @@ export default function Dashboard() {
     try {
       await markAbsent(date, token);
       loadAttendance();
+      loadAllTimeHours(); // refresh all-time hours after marking absent
     } catch (err) {
       alert(err.response?.data?.message || "Failed to mark absent");
     }
   };
 
-  // Compute total hours from attendance (capped at 8hrs per day)
-const computedHours = attendance.reduce((total, record) => {
-  return total + parseFloat(record.hours_worked || 0);
-}, 0);
-
-  // Weekly summary — count present days Mon-Fri this month
+  // Weekly summary — current month only
   const weeklyStats = (() => {
     const weeks = {};
     attendance.forEach((record) => {
       const date = dayjs(record.date);
-      const dayOfWeek = date.day(); // 0=Sun, 6=Sat
-      if (dayOfWeek === 0 || dayOfWeek === 6) return; // skip weekends
+      const dayOfWeek = date.day();
+      if (dayOfWeek === 0 || dayOfWeek === 6) return;
       const weekNum = Math.ceil(date.date() / 7);
       if (!weeks[weekNum]) weeks[weekNum] = { present: 0, hours: 0 };
       if (record.status === "present") {
         weeks[weekNum].present += 1;
-        if (record.time_in && record.time_out) {
-          const diff = dayjs(record.time_out).diff(dayjs(record.time_in), "minute");
-          weeks[weekNum].hours += Math.min(diff / 60, 8);
-        }
+        weeks[weekNum].hours += parseFloat(record.hours_worked || 0);
       }
     });
     return weeks;
@@ -105,15 +109,13 @@ const computedHours = attendance.reduce((total, record) => {
       {/* Live Clock */}
       <LiveClock />
 
-      {/* OJT Hours Progress */}
-      {ojtHours && (
-        <OjtHoursSummary
-          ojtHours={ojtHours}
-          computedHours={computedHours}
-          token={token}
-          onUpdate={loadOjtHours}
-        />
-      )}
+      {/* OJT Hours Progress — uses all-time hours */}
+      <OjtHoursSummary
+        ojtHours={ojtHours}
+        computedHours={allTimeHours}
+        token={token}
+        onUpdate={() => { loadOjtHours(); loadAllTimeHours(); }}
+      />
 
       {/* Monthly Stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
@@ -160,7 +162,11 @@ const computedHours = attendance.reduce((total, record) => {
       </div>
 
       {/* Time Controls */}
-     <TimeControls token={token} onUpdate={loadAttendance} attendance={attendance} />
+      <TimeControls
+        token={token}
+        onUpdate={() => { loadAttendance(); loadAllTimeHours(); }}
+        attendance={attendance}
+      />
 
       {/* Month Navigation */}
       <div className="flex items-center justify-between mb-4">

@@ -1,22 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { updateOjtHours } from "../api/ojtHours";
 
 export default function OjtHoursSummary({ ojtHours, computedHours, token, onUpdate }) {
   const [editing, setEditing] = useState(false);
+
+  // Initialize form state
   const [form, setForm] = useState({
-    required_hours: ojtHours?.required_hours || 600,
-    previous_hours: ojtHours?.previous_hours || 0,
+    required_hours: 600,
+    previous_hours: 0,
   });
 
-  const previousHours = parseFloat(ojtHours?.previous_hours || 0);
-  const requiredHours = parseFloat(ojtHours?.required_hours || 600);
-  const totalHours = previousHours + computedHours;
+  // Sync form state whenever ojtHours changes (from backend)
+  useEffect(() => {
+    setForm({
+      required_hours: Number(ojtHours?.required_hours) || 600,
+      previous_hours: Number(ojtHours?.previous_hours) || 0,
+    });
+  }, [ojtHours]);
+
+  // Convert inputs to numbers for calculations
+  const previousHours = parseFloat(form.previous_hours || 0); // live editable value
+  const requiredHours = parseFloat(form.required_hours || 600);
+  const totalHours = previousHours + parseFloat(computedHours || 0); // always a number
   const percentage = Math.min((totalHours / requiredHours) * 100, 100).toFixed(1);
 
   const handleSave = async () => {
-    await updateOjtHours(form, token);
-    onUpdate();
-    setEditing(false);
+    try {
+      await updateOjtHours(
+        {
+          required_hours: Number(form.required_hours),
+          previous_hours: Number(form.previous_hours),
+        },
+        token
+      ); // PUT to backend
+      onUpdate(); // refresh Dashboard data
+      setEditing(false);
+    } catch (err) {
+      console.error("Failed to update OJT hours", err);
+      alert("Failed to save changes. Please try again.");
+    }
   };
 
   return (
@@ -38,8 +60,11 @@ export default function OjtHoursSummary({ ojtHours, computedHours, token, onUpda
             <label className="text-xs text-gray-500">Required Hours</label>
             <input
               type="number"
+              min="0"
               value={form.required_hours}
-              onChange={(e) => setForm({ ...form, required_hours: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, required_hours: e.target.value })
+              }
               className="border rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
           </div>
@@ -47,8 +72,11 @@ export default function OjtHoursSummary({ ojtHours, computedHours, token, onUpda
             <label className="text-xs text-gray-500">Previous Hours (before app)</label>
             <input
               type="number"
+              min="0"
               value={form.previous_hours}
-              onChange={(e) => setForm({ ...form, previous_hours: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, previous_hours: e.target.value })
+              }
               className="border rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
           </div>
@@ -71,7 +99,7 @@ export default function OjtHoursSummary({ ojtHours, computedHours, token, onUpda
         </div>
         <div>
           <p className="text-xs text-gray-400">From App</p>
-          <p className="font-semibold">{computedHours.toFixed(2)} hrs</p>
+          <p className="font-semibold">{parseFloat(computedHours || 0).toFixed(2)} hrs</p>
         </div>
         <div>
           <p className="text-xs text-gray-400">Total</p>

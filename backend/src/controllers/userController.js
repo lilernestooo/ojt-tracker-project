@@ -31,6 +31,17 @@ const getProfile = async (req, res, next) => {
   }
 };
 
+const updateInternOjtHours = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { required_hours, previous_hours } = req.body;
+    const data = await userModel.updateInternOjtHours(id, { required_hours, previous_hours });
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // Admin — get all interns
 const getAllInterns = async (req, res, next) => {
   try {
@@ -64,7 +75,6 @@ const getInternLogs = async (req, res, next) => {
   }
 };
 
-// Admin — delete intern
 const deleteUser = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -75,4 +85,4 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getProfile, getAllInterns, getInternAttendance, getInternLogs, deleteUser, updateInternOjtHours, };
+module.exports = { register, login, getProfile, getAllInterns, getInternAttendance, getInternLogs, deleteUser, updateInternOjtHours};

@@ -12,6 +12,17 @@ const getAttendance = async (req, res) => {
   }
 };
 
+const getAllTimeHours = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const hours = await attendanceModel.getAllTimeHours(userId);
+    res.json({ hours });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch all-time hours" });
+  }
+};
+
 const handleTimeIn = async (req, res) => {
   const userId = req.user.id;
   try {
@@ -47,4 +58,4 @@ const handleMarkAbsent = async (req, res) => {
   }
 };
 
-module.exports = { getAttendance, handleTimeIn, handleTimeOut, handleMarkAbsent };
+module.exports = { getAttendance, getAllTimeHours, handleTimeIn, handleTimeOut, handleMarkAbsent };

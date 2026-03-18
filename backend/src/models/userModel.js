@@ -48,6 +48,17 @@ const getUserById = async (id) => {
   return result.rows[0] || null;
 };
 
+const updateInternOjtHours = async (userId, { required_hours, previous_hours }) => {
+  const result = await pool.query(
+    `UPDATE ojt_hours
+     SET required_hours = $1, previous_hours = $2
+     WHERE user_id = $3
+     RETURNING *`,
+    [required_hours, previous_hours, userId]
+  );
+  return result.rows[0];
+};
+
 // Admin — get all interns with their OJT hours
 const getAllInterns = async () => {
   const result = await pool.query(

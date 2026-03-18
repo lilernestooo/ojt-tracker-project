@@ -11,6 +11,16 @@ const getAttendanceByMonth = async (userId, month) => {
   return res.rows;
 };
 
+const getAllTimeHours = async (userId) => {
+  const res = await pool.query(
+    `SELECT COALESCE(SUM(hours_worked), 0) AS total_hours
+     FROM attendance
+     WHERE user_id = $1 AND status = 'present'`,
+    [userId]
+  );
+  return parseFloat(res.rows[0].total_hours);
+};
+
 const timeIn = async (userId) => {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 
@@ -29,7 +39,6 @@ const timeIn = async (userId) => {
 const timeOut = async (userId) => {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 
-  // First update time_out
   const res = await pool.query(
     `UPDATE attendance
      SET time_out = CURRENT_TIMESTAMP
@@ -41,11 +50,9 @@ const timeOut = async (userId) => {
   const record = res.rows[0];
   if (!record) return null;
 
-  // Compute hours worked capped at 8hrs
   const diffMinutes = (new Date(record.time_out) - new Date(record.time_in)) / 1000 / 60;
   const hoursWorked = Math.min(diffMinutes / 60, 8).toFixed(2);
 
-  // Store computed hours_worked
   const updated = await pool.query(
     `UPDATE attendance
      SET hours_worked = $1
@@ -70,4 +77,4 @@ const markAbsent = async (userId, date) => {
   return res.rows[0];
 };
 
-module.exports = { getAttendanceByMonth, timeIn, timeOut, markAbsent };
+module.exports = { getAttendanceByMonth, getAllTimeHours, timeIn, timeOut, markAbsent };
